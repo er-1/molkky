@@ -15,6 +15,7 @@ define("PLAYING", PLAYER - 10);
 define("BITS", min(78, floor((GROUND - PLAYING) / 4)));
 define("TARGET", BITS * 4);
 define("TARGET_MARGIN", (GROUND - PLAYING - TARGET) / 2);
+define("BUTTON_PLAY", floor(WIDTH / 5) - 4);
 
 define("MAX_PLAYERS", 6);
 define("BITS_NUMBER", 12);
@@ -60,9 +61,71 @@ function firstload() {
         scores[i] = 0;
         blank[i] = 0;
     }
+    currentplayer = -1;
+    winner = -1;
+    nbplayer = 0;
+    mode = 0;
+    clearDiv();
     initExit();
     $("#play").hide();
     refresh();
+}
+
+function sameGame() {
+    for (var i = 0; i < nbplayer; i++) {
+        scores[i] = 0;
+        blank[i] = 0;
+    }
+    winner = -1;
+    clearDiv();
+    readyToPlay();
+}
+
+function winGame() {
+    players.sort(function(a, b) {
+        var n, m = 0;
+        if (a == "") return 1;
+        if (b == "") return -1;
+        for (var i = 0; i < nbplayer; i++) {
+            if (players[i] == a) n = i;
+            if (players[i] == b) m = i;
+        }
+        if (n == winner) return -1;
+        if (m == winner) return 1;
+        var v = scores[m] - scores[n];
+        if (v != 0)
+            return v;
+        return blank[n] - blank[m];
+    });
+    sameGame();
+}
+
+function loseGame() {
+    players.sort(function(a, b) {
+        var n, m = 0;
+        if (a == "") return 1;
+        if (b == "") return -1;
+        for (var i = 0; i < nbplayer; i++) {
+            if (players[i] == a) n = i;
+            if (players[i] == b) m = i;
+        }
+        if (n == winner) return 1;
+        if (m == winner) return -1;
+        var v = scores[n] - scores[m];
+        if (v != 0)
+            return v;
+        return blank[m] - blank[n];
+    });
+    sameGame();
+}
+
+function rndGame() {
+    players.sort(function(a, b) {
+        if (a == "") return 1;
+        if (b == "") return -1;
+        return 0.5 - Math.random();
+    });
+    sameGame();
 }
 
 function exit1() {
@@ -81,6 +144,23 @@ function bit(nb) {
     initExit();
     bits[nb - 1] = ! bits[nb - 1];
     turnBits();
+}
+
+function clearDiv() {
+    document.getElementById("current").innerHTML = "";
+    document.getElementById("winner").innerHTML = "";
+    for (var i = 0; i < <?php print(MAX_PLAYERS); ?>; i++) {
+        $("#player_" + i).css("background-color", "transparent");
+        $("#player_" + i).css("color", "#EEEEEE");
+        $("#player_" + i).css("opacity", "1");
+        if (nbplayer == 0)
+            $("#player_" + i).css("width", "100%");
+        $("#player_" + i).hide();
+        document.getElementById("name_" + i).innerHTML = players[i];
+        document.getElementById("score_" + i).innerHTML = 0;
+        for (var b = 0; b < <?php print(BLANK_MAX); ?>; b++)
+            $("#blank_" + i + "_" + b).hide();
+    }
 }
 
 function turnBits() {
@@ -242,7 +322,8 @@ function addPlayer() {
             $("#player_" + i).css("width", "50%");
     if (nbplayer > ((<?php print(MAX_PLAYERS); ?> / 2) + 1))
         $("#player_" + (nbplayer - 1)).css("width", "50%");
-    $("#play").show();
+    if (nbplayer > 1)
+        $("#play").show();
     if (nbplayer >= <?php print(MAX_PLAYERS); ?>)
         readyToPlay();
     refresh();
@@ -411,24 +492,55 @@ a {
     color: #EEEEEE;
 }
 
-.button {
-    width: 110px;
-    height: 110px;
-    line-height: 110px;
-    max-height: 110px;
+#vicotory #buttons {
+    float: left;
+    width: <?php print(BUTTON_PLAY * 3 + 20); ?>px;
+    padding: inherit;
+    border: inherit;
+}
+
+.button, .buttons, .buttonBs {
     vertical-align: middle;
     text-align: center;
     border-radius: 50%;
     cursor: pointer;
     display: inline-block;
-    margin-bottom: 30px;
     padding: inherit;
-    position: absolute;
-    bottom: 0px;
     background-color: #859900;
     color: #EEEEEE;
     text-transform: uppercase;
+}
+
+.button {
+    width: 110px;
+    height: 110px;
+    line-height: 110px;
+    max-height: 110px;
+    margin-bottom: 30px;
+    position: absolute;
+    bottom: 0px;
     font-size: 35px;
+}
+
+.buttons, .buttonBs {
+    margin: 2px;
+    float: left;
+}
+
+.buttons {
+    width: <?php print(BUTTON_PLAY); ?>px;
+    height: <?php print(BUTTON_PLAY); ?>px;
+    line-height: <?php print(BUTTON_PLAY); ?>px;
+    max-height: <?php print(BUTTON_PLAY); ?>px;
+    font-size: 25px;
+}
+
+.buttonBs {
+    width: <?php print(BUTTON_PLAY * 1.5); ?>px;
+    height: <?php print(BUTTON_PLAY * 1.5); ?>px;
+    line-height: <?php print(BUTTON_PLAY * 1.5); ?>px;
+    max-height: <?php print(BUTTON_PLAY * 1.5); ?>px;
+    font-size: 50px;
 }
 
 #newplayer #takeit {
@@ -561,12 +673,22 @@ input {
         <div id="go" onclick="updatePlayer();"></div>
         <div id="ko" onclick="updatePlayer();"></div>
         <div id="exit1" onclick="exit1();"></div>
-        <div id="exit2" onclick="location.reload();"><span>X</span></div>
+        <div id="exit2" onclick="firstload();"><span>X</span></div>
     </div>
     <div id="vicotory">
         <div id="txt">VICOTORY !</div>
         <div id="winner"></div>
-        <div class="button centered" onclick="location.reload();">Play</div>
+        <div class="centered" style="position:absolute;bottom:0px;">
+            <div id="buttons" class="centered">
+                <div class="buttonBs" onclick="winGame();">W</div>
+                <div class="buttonBs" onclick="loseGame();">L</div>
+            </div>
+            <div id="buttons" class="centered">
+                <div class="buttons" onclick="rndGame();">R</div>
+                <div class="buttons" onclick="sameGame();">S</div>
+                <div class="buttons" onclick="firstload();">N</div>
+            </div>
+        </div>
     </div>
 </div>
 <p style="font-size:45%;">Generated in <?php print(microtime(true) - $timestart); ?> seconds::::<a href="https://github.com/er-1/molkky">GitHub</a></p>
